@@ -22,19 +22,20 @@ sleep_time = 5
 # UA:身份认证
 # Cookie:Cookie有过期时间,过期之后就无法获取数据了,需要更换Cookie
 
-#chrome浏览器
+# chrome浏览器
 headers1 = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
-    'Cookie': 'antipas=91100x5z8225hLBD208907711542'
+    'Cookie': 'antipas=42753262W9207405H3363169981'
 }
 
-#edge浏览器
+# edge浏览器
 headers2 = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 Edg/87.0.664.66',
-    'Cookie': 'antipas=68C363C0t042133T7X101X7OB0'
+    'Cookie': 'antipas=2N7593105499097086O91792XO'
 }
 
-headers = [headers1 , headers2]
+headers = [headers1, headers2]
+
 
 # 请求城市页面获取车辆url
 def getCarUrl(city_url, car_brif):
@@ -42,53 +43,59 @@ def getCarUrl(city_url, car_brif):
     count_all = 0
     base_url = 'https://www.guazi.com'
     for city in city_url:
-        myheaders = headers[count_all % len(headers)]
-        print('正在获取：' + city)
-        pages = 51
-        if debug:
-            pages = 2
-        for index in range(1, pages):
-            print('正在获取' + city + '第：' + str(index) + ' 页')
+        try:
+            myheaders = headers[count_all % len(headers)]
+            print('正在获取：' + city)
+            pages = 51
+            if debug:
+                pages = 2
+            for index in range(1, pages):
+                try:
+                    print('正在获取' + city + '第：' + str(index) + ' 页')
 
-            # 1.url
-            url = 'https://www.guazi.com/' + city + '/buy/o' + str(index) + '/#bread'
+                    # 1.url
+                    url = 'https://www.guazi.com/' + city + '/buy/o' + str(index) + '/#bread'
 
-            # 2.模拟浏览器发送请求,接受响应
-            # response = rq.get(url) #无请求头返回203
-            respones = rq.get(url=url, headers=myheaders, timeout=3)
-            # print(respones.status_code) #输出返回码
-            # print(response.text) #以文本形式输出网页源代码,该方式会输出乱码
-            # print(response.content.decode('utf-8')) #以二进制形式输出网页源代码,根据utf-8解码
+                    # 2.模拟浏览器发送请求,接受响应
+                    # response = rq.get(url) #无请求头返回203
+                    respones = rq.get(url=url, headers=myheaders, timeout=3)
+                    # print(respones.status_code) #输出返回码
+                    # print(response.text) #以文本形式输出网页源代码,该方式会输出乱码
+                    # print(response.content.decode('utf-8')) #以二进制形式输出网页源代码,根据utf-8解码
 
-            # 3.网页解析
-            if respones.status_code == 200:
-                text = respones.content.decode('utf-8')
-                # print(text)
-                raw_html = bs(text, 'lxml')  # 返回网页
-                # <ul class="carlist clearfix js-top">
-                car_ul = raw_html.select_one('.carlist')  # ul
-                # print(car_ul)
+                    # 3.网页解析
+                    if respones.status_code == 200:
+                        text = respones.content.decode('utf-8')
+                        # print(text)
+                        raw_html = bs(text, 'lxml')  # 返回网页
+                        # <ul class="carlist clearfix js-top">
+                        car_ul = raw_html.select_one('.carlist')  # ul
+                        # print(car_ul)
 
-                # 获取car_ul中的a标签
-                car = car_ul.select('a')
+                        # 获取car_ul中的a标签
+                        car = car_ul.select('a')
 
-                for c in car:
-                    # 原价
-                    try:
-                        original_price = c.select('.line-through')[0].get_text()
-                        car_brif[base_url + c.get('href')] = original_price
-                        # 每个城市获取条目计数
-                        count += 1
-                    except:
-                        continue
-            else:
-                print('respones.status_code' + str(respones.status_code))
-                # time.sleep(sleep_time)  #降低ip频率,防反爬休眠
+                        for c in car:
+                            # 原价
+                            try:
+                                original_price = c.select('.line-through')[0].get_text()
+                                car_brif[base_url + c.get('href')] = original_price
+                                # 每个城市获取条目计数
+                                count += 1
+                            except:
+                                continue
+                    else:
+                        print('respones.status_code' + str(respones.status_code))
+                        # time.sleep(sleep_time)  #降低ip频率,防反爬休眠
+                except:
+                    continue
 
+            count_all += count
+            print(city + '共获取：' + str(count) + '条')
+            count = 0
+        except:
+            continue
 
-        count_all += count
-        print(city + '共获取：' + str(count) + '条')
-        count = 0
     print('\n所有城市共获取：' + str(count_all) + '条')
 
 
@@ -202,18 +209,62 @@ def getCarDetail(car_brif):
                 front_tire_size = detail_content[2].select('td')[15].text.strip()
                 # 后轮胎规格
                 back_tire_size = detail_content[2].select('td')[17].text.strip()
+                # 主/副驾驶安全气囊
+                main_cc_driver_airbag = detail_content[3].select('td')[15].text.strip()
+                # 前/后排侧气囊
+                front_rear_side_airbags = detail_content[3].select('td')[3].text.strip()
+                # 前/后排头部气囊
+                front_rear_head_airbags = detail_content[3].select('td')[5].text.strip()
+                # 胎压检测
+                tire_pressure_detection = detail_content[3].select('td')[7].text.strip()
+                # 车内中控锁
+                interior_central_locking = detail_content[3].select('td')[9].text.strip()
+                # 儿童座椅接口
+                child_seat_interface = detail_content[3].select('td')[11].text.strip()
+                # 无钥匙启动
+                keyless_start = detail_content[3].select('td')[13].text.strip()
                 # abs
                 abs = detail_content[3].select('td')[15].text.strip()
                 # esp
                 esp = detail_content[3].select('td')[17].text.strip()
+
+                # 电动天窗
+                electric_skylight = detail_content[4].select('td')[1].text.strip()
+                # 全景天窗
+                panoramic_sunroof = detail_content[4].select('td')[3].text.strip()
+                # 电动吸合门
+                electric_pull_in_door = detail_content[4].select('td')[5].text.strip()
+                # 感应后备箱
+                induction_trunk = detail_content[4].select('td')[7].text.strip()
+                # 感应雨刷
+                induction_wiper = detail_content[4].select('td')[9].text.strip()
+                # 后雨刷
+                rear_wiper = detail_content[4].select('td')[11].text.strip()
+                # 前/后电动车窗
+                front_rear_power_windows = detail_content[4].select('td')[13].text.strip()
+                # 后视镜电动调节
+                rearview_mirror_electric_adjustment = detail_content[4].select('td')[15].text.strip()
+                # 后视镜加热
+                rearview_mirror_heating = detail_content[4].select('td')[17].text.strip()
+
+                # 多功能方向盘
+                multi_function_steering_wheel = detail_content[5].select('td')[1].text.strip()
                 # 定速巡航
                 cruise_control = detail_content[5].select('td')[3].text.strip()
+                # 后排独立空调
+                rear_independent_air_conditioner = detail_content[5].select('td')[5].text.strip()
+                # 空调控制方式
+                air_conditioning_control_mode = detail_content[5].select('td')[7].text.strip()
                 # gps
-                gps = detail_content[3].select('td')[9].text.strip()
+                gps = detail_content[5].select('td')[9].text.strip()
                 # 倒车雷达
-                pdc = detail_content[3].select('td')[11].text.strip()
+                pdc = detail_content[5].select('td')[11].text.strip()
                 # 倒车影像系统
-                rcpa = detail_content[3].select('td')[13].text.strip()
+                rcpa = detail_content[5].select('td')[13].text.strip()
+                # 真皮座椅
+                leather_seat = detail_content[5].select('td')[15].text.strip()
+                # 前/后排座椅加热
+                front_rear_seat_heating = detail_content[5].select('td')[17].text.strip()
 
                 car = {
                     '城市':
@@ -286,24 +337,66 @@ def getCarDetail(car_brif):
                         front_tire_size,
                     '后轮胎规格':
                         back_tire_size,
+                    '主/副驾驶安全气囊':
+                        main_cc_driver_airbag,
+                    '前/后排侧气囊':
+                        front_rear_side_airbags,
+                    '前/后排头部气囊':
+                        front_rear_head_airbags,
+                    '胎压检测':
+                        tire_pressure_detection,
+                    '车内中控锁':
+                        interior_central_locking,
+                    '儿童座椅接口':
+                        child_seat_interface,
+                    '无钥匙启动':
+                        keyless_start,
                     'abs':
                         abs,
                     'esp':
                         esp,
+                    '电动天窗':
+                        electric_skylight,
+                    '全景天窗':
+                        panoramic_sunroof,
+                    '电动吸合门':
+                        electric_pull_in_door,
+                    '感应后备箱':
+                        induction_trunk,
+                    '感应雨刷':
+                        induction_wiper,
+                    '后雨刷':
+                        rear_wiper,
+                    '前/后电动车窗':
+                        front_rear_power_windows,
+                    '后视镜电动调节':
+                        rearview_mirror_electric_adjustment,
+                    '后视镜加热':
+                        rearview_mirror_heating,
+                    '多功能方向盘':
+                        multi_function_steering_wheel,
                     '定速巡航':
                         cruise_control,
+                    '后排独立空调':
+                        rear_independent_air_conditioner,
+                    '空调控制方式':
+                        air_conditioning_control_mode,
                     'gps':
                         gps,
                     '倒车雷达':
                         pdc,
                     '倒车影像系统':
-                        rcpa
+                        rcpa,
+                    '真皮座椅':
+                        leather_seat,
+                    '前/后排座椅加热':
+                        front_rear_seat_heating
                 }
             else:
                 print('respones.status_code' + str(respones.status_code))
                 # time.sleep(sleep_time)  #降低ip频率,防反爬休眠
         except:
-            print('无效页面')
+            continue
 
         # 讲字典加入汽车信息(car_info_list)列表
         car_info_list.append(car)
@@ -347,8 +440,9 @@ def save_csv(car_info_list):
 
 if __name__ == '__main__':
     # 每个城市的url
-    # 北京 上海 广州 深圳 成都 重庆 杭州 苏州 沈阳 武汉
-    city_url = ['bj', 'sh', 'gz', 'sz', 'cd', 'cq', 'hz', 'su', 'sy', 'wh']
+    # 石家庄 北京 上海 广州 深圳 成都 重庆 杭州 苏州 沈阳 武汉 天津 西安 兰州 合肥 长春 南昌 南京 南宁 西宁
+    city_url = ['sjz', 'bj', 'sh', 'gz', 'sz', 'cd', 'cq', 'hz', 'su', 'sy', 'wh', 'tj', 'xa', 'lz', 'hf', 'cc',  'nc',
+                'nj', 'nn', 'xn']
     if debug:
         city_url = ['sh']
 
