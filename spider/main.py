@@ -14,18 +14,27 @@ from bs4 import BeautifulSoup as bs
 import csv
 import re
 
-debug = True
+debug = False
 csv_menu = []
+sleep_time = 5
 
 # 请求头信息
 # UA:身份认证
 # Cookie:Cookie有过期时间,过期之后就无法获取数据了,需要更换Cookie
-headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
-    'Cookie': 'antipas=427532629207405v33631y69981'
 
+#chrome浏览器
+headers1 = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
+    'Cookie': 'antipas=91100x5z8225hLBD208907711542'
 }
 
+#edge浏览器
+headers2 = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36 Edg/87.0.664.66',
+    'Cookie': 'antipas=68C363C0t042133T7X101X7OB0'
+}
+
+headers = [headers1 , headers2]
 
 # 请求城市页面获取车辆url
 def getCarUrl(city_url, car_brif):
@@ -33,6 +42,7 @@ def getCarUrl(city_url, car_brif):
     count_all = 0
     base_url = 'https://www.guazi.com'
     for city in city_url:
+        myheaders = headers[count_all % len(headers)]
         print('正在获取：' + city)
         pages = 51
         if debug:
@@ -45,7 +55,7 @@ def getCarUrl(city_url, car_brif):
 
             # 2.模拟浏览器发送请求,接受响应
             # response = rq.get(url) #无请求头返回203
-            respones = rq.get(url=url, headers=headers, timeout=3)
+            respones = rq.get(url=url, headers=myheaders, timeout=3)
             # print(respones.status_code) #输出返回码
             # print(response.text) #以文本形式输出网页源代码,该方式会输出乱码
             # print(response.content.decode('utf-8')) #以二进制形式输出网页源代码,根据utf-8解码
@@ -64,10 +74,18 @@ def getCarUrl(city_url, car_brif):
 
                 for c in car:
                     # 原价
-                    # < em class ="line-through" > 16.37万 < / em >
-                    car_brif[base_url + c.get('href')] = c.select('.line-through')[0].get_text()
-                    # 每个城市获取条目计数
-                    count += 1
+                    try:
+                        original_price = c.select('.line-through')[0].get_text()
+                        car_brif[base_url + c.get('href')] = original_price
+                        # 每个城市获取条目计数
+                        count += 1
+                    except:
+                        continue
+            else:
+                print('respones.status_code' + str(respones.status_code))
+                # time.sleep(sleep_time)  #降低ip频率,防反爬休眠
+
+
         count_all += count
         print(city + '共获取：' + str(count) + '条')
         count = 0
@@ -84,17 +102,16 @@ def getCarDetail(car_brif):
     for url in car_brif:
         # 防止网站反爬拒绝访问导致整个程序崩溃
         try:
-            respones = rq.get(url=url, headers=headers, timeout=5)
+            myheaders = headers[count % len(headers)]
+            respones = rq.get(url=url, headers=myheaders, timeout=5)
             if respones.status_code == 200:
                 text = respones.content.decode('utf-8')
                 # print(text)
                 raw_html = bs(text, 'lxml')  # 返回car页面
                 # print(raw_html)
 
-                # < ul class ="basic-eleven clearfix" >
                 # 城市
                 city = raw_html.select_one('title').text[0:2].strip()
-
                 # 名称
                 title = raw_html.select_one('.titlebox').text.strip()
                 searchObj1 = re.search(r'([\u4e00-\u9fa5]+.).+', title, re.I)
@@ -282,8 +299,10 @@ def getCarDetail(car_brif):
                     '倒车影像系统':
                         rcpa
                 }
+            else:
+                print('respones.status_code' + str(respones.status_code))
+                # time.sleep(sleep_time)  #降低ip频率,防反爬休眠
         except:
-            time.sleep(30)  # 防反爬休眠
             print('无效页面')
 
         # 讲字典加入汽车信息(car_info_list)列表
@@ -304,7 +323,7 @@ def getCarDetail(car_brif):
 
     print('\n已获取：' + str(len(car_info_list)) + ' 条')
 
-    #生成csv_menu
+    # 生成csv_menu
     for key in car.keys():
         csv_menu.append(key)
     return car_info_list
@@ -320,7 +339,7 @@ def save_csv(car_info_list):
     for item in car_info_list:
         # 按行写入
         csv_dat = []
-        for i in range(0,len(csv_menu)):
+        for i in range(0, len(csv_menu)):
             csv_dat.append(item.get(csv_menu[i]))
         csvWriter.writerow(csv_dat)
     file.close()
